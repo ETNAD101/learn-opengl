@@ -19,6 +19,8 @@ void processInput(GLFWwindow* window);
 unsigned int generateTexture(const char* path, unsigned int format, bool flip);
 
 Camera camera = Camera();
+
+glm::vec3 lightPos(1.2f, 3.0f, -3.0f);
 std::vector<glm::vec3> cubePositions;
 
 float deltaTime = 0.0f;
@@ -57,7 +59,8 @@ int main() {
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
 
-    Shader shader("../shaders/light.vsh", "../shaders/light.fsh");
+    Shader lightingShader("../shaders/light.vsh", "../shaders/light.fsh");
+    Shader lightCubeShader("../shaders/light.vsh", "../shaders/lightCube.fsh");
 
     float vertices[] = {
             -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
@@ -118,19 +121,18 @@ int main() {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    unsigned int lightVAO;
-    glGenVertexArrays(1, &lightVAO);
-    glBindVertexArray(lightVAO);
+    unsigned int lightCubeVAO;
+    glGenVertexArrays(1, &lightCubeVAO);
+    glBindVertexArray(lightCubeVAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
 
+    cubePositions.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
 
-
-    shader.use();
-    shader.setVec3
-    cubePositions.push_back(glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 model = glm::mat4(1.0f);
 
     while(!glfwWindowShouldClose(window)) {
         float currentFrame = glfwGetTime();
@@ -139,24 +141,38 @@ int main() {
 
         processInput(window);
 
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        shader.use();
 
         camera.update_view();
 
-        shader.setMat4("view", camera.view);
-        shader.setMat4("projection", camera.projection);
+        lightingShader.use();
+        lightingShader.setVec3("objectColor", glm::vec3(1.0f, 0.5f, 0.31f));
+        lightingShader.setVec3("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
 
-        glBindVertexArray(modelVAO);
         for (unsigned int i = 0; i < cubePositions.size(); i++) {
-            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::mat4(1.0f);
             model = glm::translate(model, cubePositions[i]);
-            shader.setMat4("model", model);
+            lightingShader.setMat4("model", model);
+            lightingShader.setMat4("view", camera.view);
+            lightingShader.setMat4("projection", camera.projection);
 
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
+
+        lightCubeShader.use();
+
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, lightPos);
+        model = glm::scale(model, glm::vec3(0.2f));
+
+        lightingShader.setMat4("model", model);
+        lightingShader.setMat4("view", camera.view);
+        lightingShader.setMat4("projection", camera.projection);
+
+        glBindVertexArray(lightCubeVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
 
         glfwSwapBuffers(window);
         glfwPollEvents();
