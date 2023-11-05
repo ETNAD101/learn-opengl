@@ -1,6 +1,10 @@
 #include <iostream>
 #include <vector>
 
+#include <ImGUI/imgui.h>
+#include <ImGUI/imgui_impl_glfw.h>
+#include <IMGUI/imgui_impl_opengl3.h>
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -11,6 +15,13 @@
 #include "stb_image.h"
 #include "settings.h"
 
+/*
+ * TODO
+ * Cleanup build script
+ * add comments
+ * Cleanup code
+ * Make better block spawning and scaling system
+*/
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double p_xPos, double p_yPos);
@@ -25,6 +36,9 @@ std::vector<glm::vec3> cubePositions;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
+
+bool mouse_enabled = false;
+bool mouse_toggle = false;
 
 int main() {
     glfwInit();
@@ -53,11 +67,18 @@ int main() {
     }
 
     glEnable(GL_DEPTH_TEST);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 330");
 
     Shader lightingShader("../shaders/lightingShader.vsh", "../shaders/lightingShader.fsh");
     Shader lightCubeShader("../shaders/lightingShader.vsh", "../shaders/lightCube.fsh");
@@ -134,7 +155,21 @@ int main() {
 
     glm::mat4 model = glm::mat4(1.0f);
 
+    float pos_offset = 0;
+
     while(!glfwWindowShouldClose(window)) {
+        // Start ImGui
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        // ImGui
+        ImGui::Begin("This is my ImGui window");
+        ImGui::Text("this is some text");
+        ImGui::SliderFloat("Position", &pos_offset, 0, 10);
+        ImGui::End();
+
+        // Main OpenGL loop
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
@@ -145,6 +180,8 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         camera.update_view();
+
+        lightPos = glm::vec3(cos(pos_offset) * 2, cos(pos_offset) / 2 * 1.5, sin(pos_offset) * 2);
 
         lightingShader.use();
         lightingShader.setVec3("objectColor", glm::vec3(1.0f, 0.5f, 0.31f));
@@ -177,9 +214,16 @@ int main() {
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
 
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 
     glDeleteVertexArrays(1,&modelVAO);
     glDeleteBuffers(1, &VBO);
@@ -194,9 +238,11 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 }
 
 void mouse_callback(GLFWwindow* window, double p_xPos, double p_yPos) {
-    float xPos = static_cast<float>(p_xPos);
-    float yPos = static_cast<float>(p_yPos);
-    camera.handle_mouse(xPos, yPos);
+    if (!mouse_enabled) {
+        float xPos = static_cast<float>(p_xPos);
+        float yPos = static_cast<float>(p_yPos);
+        camera.handle_mouse(xPos, yPos);
+    }
 }
 
 void scroll_callback(GLFWwindow* window, double xOffset, double yOffset) {
@@ -208,8 +254,19 @@ void scroll_callback(GLFWwindow* window, double xOffset, double yOffset) {
 }
 
 void processInput(GLFWwindow* window) {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS)
+        mouse_toggle = true;
+
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS && mouse_toggle) {
+        mouse_toggle = false;
+        if (mouse_enabled) {
+            mouse_enabled = false;
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        } else {
+            mouse_enabled = true;
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        }
+    }
 
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -226,6 +283,11 @@ void processInput(GLFWwindow* window) {
         camera.move(LEFT, cam_speed);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.move(RIGHT, cam_speed);
+
+    if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS) {
+        cubePositions.push_back(camera.pos);
+    }
+
 }
 
 unsigned int generateTexture(const char* path, unsigned int format, bool flip) {
