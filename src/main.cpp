@@ -20,8 +20,12 @@
  * Cleanup build script
  * add comments
  * Cleanup code
- * Make better block spawning and scaling system
 */
+
+struct Cube {
+    glm::vec3 scale;
+    glm::vec3 pos;
+};
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double p_xPos, double p_yPos);
@@ -32,13 +36,17 @@ unsigned int generateTexture(const char* path, unsigned int format, bool flip);
 Camera camera = Camera();
 
 glm::vec3 lightPos(2.0f, 1.0f, 1.5f);
-std::vector<glm::vec3> cubePositions;
+std::vector<Cube> cubes;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
 bool mouse_enabled = false;
 bool mouse_toggle = false;
+
+void spawnCube(float s_x, float s_y, float s_z) {
+    cubes.push_back(Cube{glm::vec3{s_x, s_y, s_z}, camera.pos});
+}
 
 int main() {
     glfwInit();
@@ -80,8 +88,8 @@ int main() {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
 
-    Shader lightingShader("../shaders/lightingShader.vsh", "../shaders/lightingShader.fsh");
-    Shader lightCubeShader("../shaders/lightingShader.vsh", "../shaders/lightCube.fsh");
+    Shader lightingShader("../shaders/lightingShader.vert", "../shaders/lightingShader.frag");
+    Shader lightCubeShader("../shaders/lightingShader.vert", "../shaders/lightCube.frag");
 
     float vertices[] = {
             -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
@@ -151,11 +159,13 @@ int main() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    cubePositions.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
+    cubes.push_back(Cube{glm::vec3(1.0, 1.0, 1.0), glm::vec3(0.0, 0.0, 0.0)});
 
     glm::mat4 model = glm::mat4(1.0f);
 
-    float pos_offset = 0;
+    float scale_x = 1;
+    float scale_y = 1;
+    float scale_z = 1;
 
     while(!glfwWindowShouldClose(window)) {
         // Start ImGui
@@ -164,9 +174,13 @@ int main() {
         ImGui::NewFrame();
 
         // ImGui
-        ImGui::Begin("This is my ImGui window");
-        ImGui::Text("this is some text");
-        ImGui::SliderFloat("Position", &pos_offset, 0, 10);
+        ImGui::Begin("Spawn Panel");
+        ImGui::Text("Scale");
+        ImGui::SliderFloat("X", &scale_x, 1, 10);
+        ImGui::SliderFloat("Y", &scale_y, 1, 10);
+        ImGui::SliderFloat("Z", &scale_z, 1, 10);
+        if (ImGui::Button("Spawn"))
+            spawnCube(scale_x, scale_y, scale_z);
         ImGui::End();
 
         // Main OpenGL loop
@@ -181,7 +195,7 @@ int main() {
 
         camera.update_view();
 
-        lightPos = glm::vec3(cos(pos_offset) * 2, cos(pos_offset) / 2 * 1.5, sin(pos_offset) * 2);
+        lightPos = glm::vec3(cos(currentFrame) * 2, cos(currentFrame) / 2 * 1.5, sin(currentFrame) * 2);
 
         lightingShader.use();
         lightingShader.setVec3("objectColor", glm::vec3(1.0f, 0.5f, 0.31f));
@@ -189,9 +203,10 @@ int main() {
         lightingShader.setVec3("lightPos", lightPos);
         lightingShader.setVec3("viewPos", camera.pos);
 
-        for (unsigned int i = 0; i < cubePositions.size(); i++) {
+        for (Cube cube : cubes) {
             model = glm::mat4(1.0f);
-            model = glm::translate(model, cubePositions[i]);
+            model = glm::translate(model, cube.pos);
+            model = glm::scale(model, cube.scale);
             lightingShader.setMat4("model", model);
             lightingShader.setMat4("view", camera.view);
             lightingShader.setMat4("projection", camera.projection);
@@ -283,11 +298,6 @@ void processInput(GLFWwindow* window) {
         camera.move(LEFT, cam_speed);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.move(RIGHT, cam_speed);
-
-    if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS) {
-        cubePositions.push_back(camera.pos);
-    }
-
 }
 
 unsigned int generateTexture(const char* path, unsigned int format, bool flip) {
