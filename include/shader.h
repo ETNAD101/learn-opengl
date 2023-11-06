@@ -14,7 +14,11 @@
 #include <sstream>
 #include <iostream>
 
+#include "logger.h"
+
 class Shader {
+private:
+    Logger logger = Logger("SHADER");
 public:
     unsigned int ID;
 

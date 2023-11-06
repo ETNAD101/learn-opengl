@@ -50,6 +50,13 @@ add_library(
         camera
         include/camera.h
         src/camera.cpp
+        src/logger.cpp
+)
+
+add_library(
+        logger
+        include/logger.h
+        src/logger.cpp
 )
 
 add_executable(
@@ -63,6 +70,7 @@ target_link_libraries(
         glad
         glfw
         stb_implementation
+        logger
         shader
         camera
 )

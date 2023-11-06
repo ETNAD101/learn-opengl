@@ -10,6 +10,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "logger.h"
 #include "shader.h"
 #include "camera.h"
 #include "stb_image.h"
@@ -17,7 +18,6 @@
 
 /*
  * TODO
- * Cleanup build script
  * add comments
  * Cleanup code
 */
@@ -26,12 +26,6 @@ struct Cube {
     glm::vec3 scale;
     glm::vec3 pos;
 };
-
-void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void mouse_callback(GLFWwindow* window, double p_xPos, double p_yPos);
-void scroll_callback(GLFWwindow* window, double xOffset, double yOffset);
-void processInput(GLFWwindow* window);
-unsigned int generateTexture(const char* path, unsigned int format, bool flip);
 
 Camera camera = Camera();
 
@@ -44,11 +38,16 @@ float lastFrame = 0.0f;
 bool mouse_enabled = false;
 bool mouse_toggle = false;
 
-void spawnCube(float s_x, float s_y, float s_z) {
-    cubes.push_back(Cube{glm::vec3{s_x, s_y, s_z}, camera.pos});
-}
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void mouse_callback(GLFWwindow* window, double p_xPos, double p_yPos);
+void scroll_callback(GLFWwindow* window, double xOffset, double yOffset);
+void processInput(GLFWwindow* window);
+unsigned int generateTexture(const char* path, unsigned int format, bool flip);
+void spawnCube(float s_x, float s_y, float s_z);
 
 int main() {
+    Logger logger = Logger("MAIN");
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -62,7 +61,8 @@ int main() {
     // Creating window
     GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, TITLE, NULL, NULL);
     if (window == NULL) {
-        std::cout << "Failed to create GLFW window" << std::endl;
+        logger.setErr();
+        logger.post("Failed to create GLFW window");
         glfwTerminate();
         return -1;
     }
@@ -70,7 +70,8 @@ int main() {
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
-        std::cout << "Failed to initialize GLAD" << std::endl;
+        logger.setErr();
+        logger.post("Failed to initialize GLAD");
         return -1;
     }
 
@@ -168,12 +169,17 @@ int main() {
     float scale_z = 1;
 
     while(!glfwWindowShouldClose(window)) {
+        // Delta time calculation
+        float currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
         // Start ImGui
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // ImGui
+        // Main GUI panel
         ImGui::Begin("Spawn Panel");
         ImGui::Text("Scale");
         ImGui::SliderFloat("X", &scale_x, 1, 10);
@@ -181,13 +187,10 @@ int main() {
         ImGui::SliderFloat("Z", &scale_z, 1, 10);
         if (ImGui::Button("Spawn"))
             spawnCube(scale_x, scale_y, scale_z);
+        ImGui::Text("FPS: %f", 1000 / deltaTime);
         ImGui::End();
 
         // Main OpenGL loop
-        float currentFrame = glfwGetTime();
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
-
         processInput(window);
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -318,8 +321,14 @@ unsigned int generateTexture(const char* path, unsigned int format, bool flip) {
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
     } else {
-        std::cout << "Failed to load texture" << std::endl;
+        Logger logger = Logger("GEN_TEXTURE");
+        logger.setAlert();
+        logger.post("Failed to load texture");
     }
     stbi_image_free(data);
     return tex;
+}
+
+void spawnCube(float s_x, float s_y, float s_z) {
+    cubes.push_back(Cube{glm::vec3{s_x, s_y, s_z}, camera.pos});
 }
