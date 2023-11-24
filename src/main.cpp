@@ -38,12 +38,96 @@ float lastFrame = 0.0f;
 bool mouse_enabled = false;
 bool mouse_toggle = false;
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void mouse_callback(GLFWwindow* window, double p_xPos, double p_yPos);
-void scroll_callback(GLFWwindow* window, double xOffset, double yOffset);
-void processInput(GLFWwindow* window);
-unsigned int generateTexture(const char* path, unsigned int format, bool flip);
-void spawnCube(float s_x, float s_y, float s_z);
+// Handle window resizing
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    glViewport(0, 0, width, height);
+}
+
+// Handle mouse movements
+void mouse_callback(GLFWwindow* window, double p_xPos, double p_yPos) {
+    if (!mouse_enabled) {
+        float xPos = static_cast<float>(p_xPos);
+        float yPos = static_cast<float>(p_yPos);
+        camera.handle_mouse(xPos, yPos);
+    }
+}
+
+// Handle scrollwheel
+void scroll_callback(GLFWwindow* window, double xOffset, double yOffset) {
+    camera.fov -= (float)yOffset;
+    if (camera.fov < 1.0f)
+        camera.fov = 1.0f;
+    if (camera.fov > FOV)
+        camera.fov = FOV;
+}
+
+
+void processInput(GLFWwindow* window) {
+    // Toggles between menu and looking modes
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS)
+        mouse_toggle = true;
+
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS && mouse_toggle) {
+        mouse_toggle = false;
+        if (mouse_enabled) {
+            mouse_enabled = false;
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        } else {
+            mouse_enabled = true;
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        }
+    }
+
+    // Toggle wireframe
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    } else {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    }
+
+    // Camera movement controls
+    float cam_speed = CAMERA_SPEED * deltaTime;
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        camera.move(FORWARD, cam_speed);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        camera.move(BACKWARD, cam_speed);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        camera.move(LEFT, cam_speed);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        camera.move(RIGHT, cam_speed);
+}
+
+// Load texture from image
+unsigned int generateTexture(const char* path, unsigned int format, bool flip) {
+    unsigned int tex;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    stbi_set_flip_vertically_on_load(flip);
+
+    int width, height, nrChannels;
+    unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
+    if (data) {
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    } else {
+        Logger logger = Logger("GEN_TEXTURE");
+        logger.setAlert();
+        logger.post("Failed to load texture");
+    }
+    stbi_image_free(data);
+    return tex;
+}
+
+// Creates cube at current camera position
+void spawnCube(float s_x, float s_y, float s_z) {
+    cubes.push_back(Cube{glm::vec3{s_x, s_y, s_z}, camera.pos});
+}
 
 
 int main() {
@@ -277,84 +361,3 @@ int main() {
     return 0;
 }
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-    glViewport(0, 0, width, height);
-}
-
-void mouse_callback(GLFWwindow* window, double p_xPos, double p_yPos) {
-    if (!mouse_enabled) {
-        float xPos = static_cast<float>(p_xPos);
-        float yPos = static_cast<float>(p_yPos);
-        camera.handle_mouse(xPos, yPos);
-    }
-}
-
-void scroll_callback(GLFWwindow* window, double xOffset, double yOffset) {
-    camera.fov -= (float)yOffset;
-    if (camera.fov < 1.0f)
-        camera.fov = 1.0f;
-    if (camera.fov > FOV)
-        camera.fov = FOV;
-}
-
-void processInput(GLFWwindow* window) {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS)
-        mouse_toggle = true;
-
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS && mouse_toggle) {
-        mouse_toggle = false;
-        if (mouse_enabled) {
-            mouse_enabled = false;
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-        } else {
-            mouse_enabled = true;
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        }
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    } else {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    }
-
-    float cam_speed = CAMERA_SPEED * deltaTime;
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        camera.move(FORWARD, cam_speed);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        camera.move(BACKWARD, cam_speed);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        camera.move(LEFT, cam_speed);
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        camera.move(RIGHT, cam_speed);
-}
-
-unsigned int generateTexture(const char* path, unsigned int format, bool flip) {
-    unsigned int tex;
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    stbi_set_flip_vertically_on_load(flip);
-
-    int width, height, nrChannels;
-    unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
-    if (data) {
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    } else {
-        Logger logger = Logger("GEN_TEXTURE");
-        logger.setAlert();
-        logger.post("Failed to load texture");
-    }
-    stbi_image_free(data);
-    return tex;
-}
-
-void spawnCube(float s_x, float s_y, float s_z) {
-    cubes.push_back(Cube{glm::vec3{s_x, s_y, s_z}, camera.pos});
-}
