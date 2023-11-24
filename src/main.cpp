@@ -7,8 +7,6 @@
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 
 #include "logger.h"
 #include "shader.h"
@@ -20,8 +18,10 @@
  * TODO
  * add comments
  * Cleanup code
+ * Make light cube colour change with light colour
 */
 
+// Initializing world pieces
 struct Cube {
     glm::vec3 scale;
     glm::vec3 pos;
@@ -47,6 +47,7 @@ void spawnCube(float s_x, float s_y, float s_z);
 
 
 int main() {
+    // Init
     Logger logger = Logger("MAIN");
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -68,6 +69,7 @@ int main() {
     }
     glfwMakeContextCurrent(window);
 
+    // Load glad
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
         logger.setErr();
@@ -81,6 +83,7 @@ int main() {
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
 
+    // Load ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
@@ -89,9 +92,11 @@ int main() {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
 
+    // Create shader programs
     Shader lightingShader("../shaders/lightingShader.vert", "../shaders/lightingShader.frag");
     Shader lightCubeShader("../shaders/lightingShader.vert", "../shaders/lightCube.frag");
 
+    // Cube verticies and normals
     float vertices[] = {
             -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
             0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
@@ -136,6 +141,7 @@ int main() {
             -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
     };
 
+    // Load verticies to GPU
     unsigned int VBO, modelVAO;
     glGenVertexArrays(1, &modelVAO);
     glGenBuffers(1, &VBO);
@@ -160,14 +166,17 @@ int main() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
+    // Create starting cube
     cubes.push_back(Cube{glm::vec3(1.0, 1.0, 1.0), glm::vec3(0.0, 0.0, 0.0)});
 
+    // Init more variables
     glm::mat4 model = glm::mat4(1.0f);
 
     float scale_x = 1;
     float scale_y = 1;
     float scale_z = 1;
 
+    // Main loop
     while(!glfwWindowShouldClose(window)) {
         // Delta time calculation
         float currentFrame = glfwGetTime();
@@ -193,6 +202,7 @@ int main() {
         // Main OpenGL loop
         processInput(window);
 
+        // Background colour
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -200,12 +210,23 @@ int main() {
 
         lightPos = glm::vec3(cos(currentFrame) * 2, cos(currentFrame) / 2 * 1.5, sin(currentFrame) * 2);
 
+        // Set cube material
         lightingShader.use();
-        lightingShader.setVec3("objectColor", glm::vec3(1.0f, 0.5f, 0.31f));
         lightingShader.setVec3("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
-        lightingShader.setVec3("lightPos", lightPos);
+        lightingShader.setVec3("material.ambient", glm::vec3(1.0f, 0.5f, 0.31f));
+        lightingShader.setVec3("material.diffuse", glm::vec3(1.0f, 0.5f, 0.31f));
+        lightingShader.setVec3("material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
+        lightingShader.setFloat("material.shininess", 32.0f);
+
+        // Set light 
+        lightingShader.setVec3("light.position", lightPos);
+        lightingShader.setVec3("light.ambient", glm::vec3(0.2f, 0.2f, 0.2f));
+        lightingShader.setVec3("light.diffuse", glm::vec3(0.5f, 0.5f, 0.5f));
+        lightingShader.setVec3("light.specular", glm::vec3(1.0f, 1.0f, 1.0f));
+
         lightingShader.setVec3("viewPos", camera.pos);
 
+        // Render all cubes 
         for (Cube cube : cubes) {
             model = glm::mat4(1.0f);
             model = glm::translate(model, cube.pos);
@@ -214,31 +235,36 @@ int main() {
             lightingShader.setMat4("view", camera.view);
             lightingShader.setMat4("projection", camera.projection);
 
+            // Draw normal cubes
             glBindVertexArray(modelVAO);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
 
+        // Render light
         lightCubeShader.use();
 
         model = glm::mat4(1.0f);
         model = glm::translate(model, lightPos);
         model = glm::scale(model, glm::vec3(0.2f));
 
-        lightingShader.setMat4("model", model);
-        lightingShader.setMat4("view", camera.view);
-        lightingShader.setMat4("projection", camera.projection);
+        lightCubeShader.setMat4("model", model);
+        lightCubeShader.setMat4("view", camera.view);
+        lightCubeShader.setMat4("projection", camera.projection);
 
+        // Draw light cube
         glBindVertexArray(lightCubeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
-
+        // Draw Gui
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
+        // Display buffer
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
+    // Cleanup
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
