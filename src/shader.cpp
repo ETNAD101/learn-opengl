@@ -54,8 +54,8 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
     if (!success) {
         glGetShaderInfoLog(vertex, 512, NULL, infoLog);
 
-        logger.setErr();
-        logger.post("VERTEX::COMPILATION_FAILED");
+        logger.setErr("VERTEX");
+        logger.post("COMPILATION_FAILED");
         std::cout << infoLog << std::endl;
     }
 
@@ -66,8 +66,8 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
     glGetShaderiv(fragment, GL_COMPILE_STATUS, &success);
     if (!success) {
         glGetShaderInfoLog(fragment, 512, NULL, infoLog);
-        logger.setErr();
-        logger.post("FRAGMENT::COMPILATION_FAILED");
+        logger.setErr("FRAGMENT");
+        logger.post("COMPILATION_FAILED");
         std::cout << infoLog << std::endl;
     }
 
@@ -80,8 +80,8 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
     glGetProgramiv(ID, GL_LINK_STATUS, &success);
     if (!success) {
         glGetProgramInfoLog(ID, 512, NULL, infoLog);
-        logger.setErr();
-        logger.post("PROGRAM::LINKING_FAILED");
+        logger.setErr("PROGRAM");
+        logger.post("LINKING_FAILED");
         std::cout << infoLog << std::endl;
     }
 

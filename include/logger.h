@@ -16,14 +16,17 @@ enum LogSeverity {
 
 class Logger {
 private:
-    char* name;
+    bool log = true;
+    const char* name;
+    const char* errorType;
     LogSeverity severity;
 
 public:
-    Logger(char* p_name);
+    Logger(const char* p_name);
     void setNote();
     void setAlert();
     void setErr();
+    void setErr(const char* p_errType);
 
     void post(const char* msg);
 };

@@ -38,13 +38,13 @@ float lastFrame = 0.0f;
 bool mouse_enabled = false;
 bool mouse_toggle = false;
 
-
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double p_xPos, double p_yPos);
 void scroll_callback(GLFWwindow* window, double xOffset, double yOffset);
 void processInput(GLFWwindow* window);
 unsigned int generateTexture(const char* path, unsigned int format, bool flip);
 void spawnCube(float s_x, float s_y, float s_z);
+
 
 int main() {
     Logger logger = Logger("MAIN");
