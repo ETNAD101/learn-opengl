@@ -125,8 +125,8 @@ unsigned int generateTexture(const char* path, unsigned int format, bool flip) {
 }
 
 // Creates cube at current camera position
-void spawnCube(float s_x, float s_y, float s_z) {
-    cubes.push_back(Cube{glm::vec3{s_x, s_y, s_z}, camera.pos});
+void spawnCube(glm::vec3 &p_pos) {
+    cubes.push_back(Cube{p_pos, camera.pos});
 }
 
 
@@ -256,9 +256,9 @@ int main() {
     // Init more variables
     glm::mat4 model = glm::mat4(1.0f);
 
-    float scale_x = 1;
-    float scale_y = 1;
-    float scale_z = 1;
+    glm::vec3 cubeSpawnPos = glm::vec3(1.0f);
+
+    glm::vec3 l_diff = glm::vec3(1.0f);
 
     // Main loop
     while(!glfwWindowShouldClose(window)) {
@@ -275,13 +275,23 @@ int main() {
         // Main GUI panel
         ImGui::Begin("Spawn Panel");
         ImGui::Text("Scale");
-        ImGui::SliderFloat("X", &scale_x, 1, 10);
-        ImGui::SliderFloat("Y", &scale_y, 1, 10);
-        ImGui::SliderFloat("Z", &scale_z, 1, 10);
+        ImGui::SliderFloat("X", &cubeSpawnPos.x, 1, 10);
+        ImGui::SliderFloat("Y", &cubeSpawnPos.y, 1, 10);
+        ImGui::SliderFloat("Z", &cubeSpawnPos.z, 1, 10);
         if (ImGui::Button("Spawn"))
-            spawnCube(scale_x, scale_y, scale_z);
+            spawnCube(cubeSpawnPos);
         ImGui::Text("FPS: %f", 1000 / deltaTime);
         ImGui::End();
+
+        // Material GUI panel
+        ImGui::Begin("Material Panel");
+        ImGui::Text("Light");
+        ImGui::Text("Diffuse/Color");
+        ImGui::SliderFloat("R", &l_diff.r, 0, 1);
+        ImGui::SliderFloat("G", &l_diff.g, 0, 1);
+        ImGui::SliderFloat("B", &l_diff.b, 0, 1);
+        ImGui::End();
+
 
         // Main OpenGL loop
         processInput(window);
@@ -296,7 +306,6 @@ int main() {
 
         // Set cube material
         lightingShader.use();
-        lightingShader.setVec3("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
         lightingShader.setVec3("material.ambient", glm::vec3(1.0f, 0.5f, 0.31f));
         lightingShader.setVec3("material.diffuse", glm::vec3(1.0f, 0.5f, 0.31f));
         lightingShader.setVec3("material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
@@ -305,8 +314,8 @@ int main() {
         // Set light 
         lightingShader.setVec3("light.position", lightPos);
         lightingShader.setVec3("light.ambient", glm::vec3(0.2f, 0.2f, 0.2f));
-        lightingShader.setVec3("light.diffuse", glm::vec3(0.5f, 0.5f, 0.5f));
-        lightingShader.setVec3("light.specular", glm::vec3(1.0f, 1.0f, 1.0f));
+        lightingShader.setVec3("light.diffuse", l_diff);
+        lightingShader.setVec3("light.specular", glm::vec3(1.0f));
 
         lightingShader.setVec3("viewPos", camera.pos);
 
@@ -331,6 +340,7 @@ int main() {
         model = glm::translate(model, lightPos);
         model = glm::scale(model, glm::vec3(0.2f));
 
+        lightCubeShader.setVec3("lightColor", l_diff);
         lightCubeShader.setMat4("model", model);
         lightCubeShader.setMat4("view", camera.view);
         lightCubeShader.setMat4("projection", camera.projection);
